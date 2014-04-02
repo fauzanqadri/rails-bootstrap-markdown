@@ -1,0 +1,14 @@
+@import "twitter/bootstrap/variables"; // Point this into your bootstrap variables
+@import "twitter/bootstrap/mixins"; // Point this into your bootstrap variables
+$color: $input-border-focus;
+$color-rgba: rgba(red($color), green($color), blue($color), .6);
+/**
+ * 
+ * Your overide code and variables goes here
+ */
+@import "sass/bootstrap-markdown";
+
+/*
+	Somebody please refactor this
+*/
+ 

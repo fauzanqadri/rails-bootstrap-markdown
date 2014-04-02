@@ -27,13 +27,18 @@ Or install it yourself as:
 ### CSS
 
 ```
-*= require bootstrap-markdown
+*= require static/bootstrap-markdown.min
 ```
 
 ### Javascript
 
 ```
 //= require bootstrap-markdown
+```
+
+### Generator
+```
+$ rails g bootstrap_markdown:install (sass|less|static)
 ```
 
 ## Contributing

@@ -1,5 +1,5 @@
 /* ===================================================
- * bootstrap-markdown.js v2.1.0
+ * bootstrap-markdown.js v2.3.1
  * http://github.com/toopay/bootstrap-markdown
  * ===================================================
  * Copyright 2013 Taufan Aditya
@@ -16,9 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * ========================================================== */
-
-//= require markdown
-//= require to-markdown
 
 !function ($) {
 
@@ -87,6 +84,7 @@
             var button = buttons[z],
                 buttonToggle = '',
                 buttonHandler = ns+'-'+button.name,
+                buttonIcon = button.icon instanceof Object ? button.icon[this.$options.iconlibrary] : button.icon,
                 btnText = button.btnText ? button.btnText : '',
                 btnClass = button.btnClass ? button.btnClass : 'btn',
                 tabIndex = button.tabIndex ? button.tabIndex : '-1'
@@ -96,7 +94,7 @@
             }
 
             // Attach the button object
-            btnGroupContainer.append('<button class="'
+            btnGroupContainer.append('<button type="button" class="'
                                     +btnClass
                                     +' btn-default btn-sm" title="'
                                     +button.title
@@ -109,7 +107,7 @@
                                     +'"'
                                     +buttonToggle
                                     +'><span class="'
-                                    +button.icon
+                                    +buttonIcon
                                     +'"></span> '
                                     +btnText
                                     +'</button>')
@@ -133,7 +131,9 @@
           rowsVal = hasRows ? this.$textarea.attr('rows') : maxRows
 
       this.$textarea.attr('rows',rowsVal)
-      this.$textarea.css('resize','none')
+      if (this.$options.resize) {
+        this.$textarea.css('resize',this.$options.resize)
+      }
 
       this.$textarea
         .on('focus',    $.proxy(this.focus, this))
@@ -195,14 +195,27 @@
                             'class': 'md-header btn-toolbar'
                             })
 
-        // Build the main buttons
-        if (options.buttons.length > 0) {
-          editorHeader = this.__buildButtons(options.buttons, editorHeader)
+        // Merge the main & additional button groups together
+        var allBtnGroups = []
+        if (options.buttons.length > 0) allBtnGroups = allBtnGroups.concat(options.buttons[0])
+        if (options.additionalButtons.length > 0) allBtnGroups = allBtnGroups.concat(options.additionalButtons[0])
+
+        // Reduce and/or reorder the button groups
+        if (options.reorderButtonGroups.length > 0) {
+          allBtnGroups = allBtnGroups
+              .filter(function(btnGroup) {
+                return options.reorderButtonGroups.indexOf(btnGroup.name) > -1
+              })
+              .sort(function(a, b) {
+                if (options.reorderButtonGroups.indexOf(a.name) < options.reorderButtonGroups.indexOf(b.name)) return -1
+                if (options.reorderButtonGroups.indexOf(a.name) > options.reorderButtonGroups.indexOf(b.name)) return 1
+                return 0
+              })
         }
 
-        // Build the additional buttons
-        if (options.additionalButtons.length > 0) {
-          editorHeader = this.__buildButtons(options.additionalButtons, editorHeader)
+        // Build the buttons
+        if (allBtnGroups.length > 0) {
+          editorHeader = this.__buildButtons([allBtnGroups], editorHeader)
         }
 
         editor.append(editorHeader)
@@ -259,16 +272,27 @@
           editor.append(editorFooter)
         }
 
-        // Set width/height
-        $.each(['height','width'],function(k,attr){
-          if (options[attr] != 'inherit') {
-            if (jQuery.isNumeric(options[attr])) {
-              editor.css(attr,options[attr]+'px')
-            } else {
-              editor.addClass(options[attr])
-            }
+        // Set width
+        if (options.width && options.width !== 'inherit') {
+          if (jQuery.isNumeric(options.width)) {
+            editor.css('display', 'table')
+            textarea.css('width', options.width + 'px')
+          } else {
+            editor.addClass(options.width)
           }
-        })
+        }
+
+        // Set height
+        if (options.height && options.height !== 'inherit') {
+          if (jQuery.isNumeric(options.height)) {
+            var height = options.height
+            if (editorHeader) height = Math.max(0, height - editorHeader.outerHeight())
+            if (editorFooter) height = Math.max(0, height - editorFooter.outerHeight())
+            textarea.css('height', height + 'px')
+          } else {
+            editor.addClass(options.height)
+          }
+        }
 
         // Reference
         this.$editor     = editor
@@ -315,7 +339,14 @@
         content = callbackContent
       } else {
         // Set the content
-        content = (typeof markdown == 'object') ? markdown.toHTML(container.val()) : container.val()
+        var val = container.val();
+        if(typeof markdown == 'object') {
+          content = markdown.toHTML(val);
+        }else if(typeof marked == 'function') {
+          content = marked(val);
+        } else {
+          content = val;
+        }
       }
 
       // Build preview element
@@ -328,6 +359,12 @@
         // Otherwise, just append it after textarea
         container.parent().append(replacementContainer)
       }
+
+      // Set the preview element dimensions
+      replacementContainer.css({
+        width: container.outerWidth() + 'px',
+        height: container.outerHeight() + 'px'
+      })
 
       // Hide the last-active textarea
       container.hide()
@@ -605,6 +642,9 @@
         }
       })
 
+    // Trigger the onFocus hook
+      options.onFocus(this);
+
       return this
     }
 
@@ -670,6 +710,8 @@
     savable:false,
     width: 'inherit',
     height: 'inherit',
+    resize: 'none',
+    iconlibrary: 'glyph',
 
     /* Buttons Properties */
     buttons: [
@@ -678,7 +720,7 @@
         data: [{
           name: 'cmdBold',
           title: 'Bold',
-          icon: 'glyphicon glyphicon-bold',
+          icon: { glyph: 'glyphicon glyphicon-bold', fa: 'fa fa-bold' },
           callback: function(e){
             // Give/remove ** surround the selection
             var chunk, cursor, selected = e.getSelection(), content = e.getContent()
@@ -707,7 +749,7 @@
         },{
           name: 'cmdItalic',
           title: 'Italic',
-          icon: 'glyphicon glyphicon-italic',
+          icon: { glyph: 'glyphicon glyphicon-italic', fa: 'fa fa-italic' },
           callback: function(e){
             // Give/remove * surround the selection
             var chunk, cursor, selected = e.getSelection(), content = e.getContent()
@@ -736,7 +778,7 @@
         },{
           name: 'cmdHeading',
           title: 'Heading',
-          icon: 'glyphicon glyphicon-font',
+          icon: { glyph: 'glyphicon glyphicon-header', fa: 'fa fa-font' },
           callback: function(e){
             // Append/remove ### surround the selection
             var chunk, cursor, selected = e.getSelection(), content = e.getContent(), pointer, prevChar
@@ -745,7 +787,7 @@
               // Give extra word
               chunk = 'heading text'
             } else {
-              chunk = selected.text
+              chunk = selected.text + '\n';
             }
 
             // transform selection and set the cursor into chunked text
@@ -754,12 +796,12 @@
               e.setSelection(selected.start-pointer,selected.end)
               e.replaceSelection(chunk)
               cursor = selected.start-pointer
-            } else if (prevChar = content.substr(selected.start-1,1), !!prevChar && prevChar != '\n') {
-              e.replaceSelection('\n\n### '+chunk+'\n')
+            } else if (selected.start > 0 && (prevChar = content.substr(selected.start-1,1), !!prevChar && prevChar != '\n')) {
+              e.replaceSelection('\n\n### '+chunk)
               cursor = selected.start+6
             } else {
               // Empty string before element
-              e.replaceSelection('### '+chunk+'\n')
+              e.replaceSelection('### '+chunk)
               cursor = selected.start+4
             }
 
@@ -772,7 +814,7 @@
         data: [{
           name: 'cmdUrl',
           title: 'URL/Link',
-          icon: 'glyphicon glyphicon-globe',
+          icon: { glyph: 'glyphicon glyphicon-globe', fa: 'fa fa-globe' },
           callback: function(e){
             // Give [] surround the selection and prepend the link
             var chunk, cursor, selected = e.getSelection(), content = e.getContent(), link
@@ -786,7 +828,7 @@
 
             link = prompt('Insert Hyperlink','http://')
 
-            if (link != null) {
+            if (link != null && link != '' && link != 'http://') {
               // transform selection and set the cursor into chunked text
               e.replaceSelection('['+chunk+']('+link+')')
               cursor = selected.start+1
@@ -798,7 +840,7 @@
         },{
           name: 'cmdImage',
           title: 'Image',
-          icon: 'glyphicon glyphicon-picture',
+          icon: { glyph: 'glyphicon glyphicon-picture', fa: 'fa fa-picture-o' },
           callback: function(e){
             // Give ![] surround the selection and prepend the image link
             var chunk, cursor, selected = e.getSelection(), content = e.getContent(), link
@@ -830,7 +872,7 @@
         data: [{
           name: 'cmdList',
           title: 'List',
-          icon: 'glyphicon glyphicon-list',
+          icon: { glyph: 'glyphicon glyphicon-list', fa: 'fa fa-list' },
           callback: function(e){
             // Prepend/Give - surround the selection
             var chunk, cursor, selected = e.getSelection(), content = e.getContent()
@@ -883,7 +925,7 @@
           title: 'Preview',
           btnText: 'Preview',
           btnClass: 'btn btn-primary btn-sm',
-          icon: 'glyphicon glyphicon-search',
+          icon: { glyph: 'glyphicon glyphicon-search', fa: 'fa fa-search' },
           callback: function(e){
             // Check the preview mode and toggle based on this flag
             var isPreview = e.$isPreview,content
@@ -899,12 +941,14 @@
       }]
     ],
     additionalButtons:[], // Place to hook more buttons by code
+    reorderButtonGroups:[],
 
     /* Events hook */
     onShow: function (e) {},
     onPreview: function (e) {},
     onSave: function (e) {},
-    onBlur: function (e) {}
+    onBlur: function (e) {},
+    onFocus: function (e) {},
   }
 
   $.fn.markdown.Constructor = Markdown
@@ -927,6 +971,7 @@
       $this.data('markdown').showEditor()
       return
     }
+
     $this.markdown($this.data())
   }
 
